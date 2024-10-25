@@ -1,0 +1,3 @@
+load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_tracking.Rdata")
+load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_wide_choice.Rdata")
+load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_long_choice.Rdata")
