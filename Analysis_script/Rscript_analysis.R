@@ -9,187 +9,148 @@ library(car)
 library(tidyr)
 library(stringr)
 library(tibble)
+library(blme)
+library(gt)
 
 # DATEN EINLESEN
-load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_long_choice.Rdata")
 load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_wide_choice.Rdata")
 load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_long_memory.Rdata")
+load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_long_choice.Rdata")
 load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_tracking.Rdata")
+
+# Setze das klassische Thema als Standard für alle Plots
+theme_set(theme_classic())
 
 #################################################################################################################################
 
 # Anzahl Probanden 
-count_probanden <- function(df) {
+count_probanden <- function(df_long_choice) {
   n_distinct(df_long_choice$participant.code)
 }
 
 # Probandenanzahl in jedem Datensatz ermitteln
 anzahl_probanden_long_choice <- count_probanden(df_long_choice)
 anzahl_probanden_wide_choice <- count_probanden(df_wide_choice)
-anzahl_probanden_memory <- count_probanden(df_memory)
+anzahl_probanden_memory <- count_probanden(df_long_memory)
 anzahl_probanden_tracking <- count_probanden(df_tracking)
 
 # Ergebnisse ausgeben
 cat("Anzahl der Probanden in df_long_choice:", anzahl_probanden_long_choice, "\n")
 cat("Anzahl der Probanden in df_wide_choice:", anzahl_probanden_wide_choice, "\n")
-cat("Anzahl der Probanden in df_memory:", anzahl_probanden_memory, "\n")
-# Alle 421
+cat("Anzahl der Probanden in df_long_memory:", anzahl_probanden_memory, "\n")
 cat("Anzahl der Probanden in df_tracking:", anzahl_probanden_tracking, "\n")
-# 407
 
 #################################################################################################################################
 
-# DESKRIPTIVE STATISTIK
+# DESKRIPTIVE STATISTIK - Demografische Variablen
 
-psych::describe(df_wide_choice)
-
-# Deskriptive Statistik für Alter
-summary(df_wide_choice$alter) 
+# Altersstatistik
+summary_age <- summary(df_wide_choice$alter) 
+print(summary_age)
 sd_age <- sd(df_wide_choice$alter, na.rm = TRUE)
-sd_age
 
-# Histogramm der Altersverteilung
+# Histogramm und Boxplot der Altersverteilung
 ggplot(df_wide_choice, aes(x = alter)) +
-  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
-  labs(title = "Altersverteilung", x = "Alter", y = "Häufigkeit") +
-  theme_minimal()
+  geom_histogram(binwidth = 1, fill = "grey", color = "black") +
+  labs(title = "Altersverteilung", x = "Alter", y = "Häufigkeit")
 
-# Boxplot der Altersverteilung
 ggplot(df_wide_choice, aes(y = alter)) +
-  geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Boxplot der Altersverteilung", y = "Alter") +
-  theme_minimal()
+  geom_boxplot(fill = "grey", color = "black") +
+  labs(title = "Boxplot der Altersverteilung", y = "Alter")
 
-# Häufigkeiten und Prozente für Geschlecht
-gender_freq <- table(df_wide_choice$geschlecht)
-gender_perc <- prop.table(gender_freq) * 100
-print(gender_freq)
-print(gender_perc)
-
-# Häufigkeiten und Prozente für Ernährungsgewohnheiten
-diet_freq <- table(df_wide_choice$ernährung)
-diet_perc <- prop.table(diet_freq) * 100
-print(diet_freq)
-print(diet_perc)
-
-# Häufigkeiten und Prozentsätze für Ernährungsgewohnheiten pro Behandlungsgruppe
+# Häufigkeiten und Prozentsätze für Geschlecht und Ernährungsgewohnheiten
+gender_summary <- table(df_wide_choice$geschlecht)
 diet_summary <- df_wide_choice %>%
-  group_by(treatment.group2, ernährung) %>%
-  summarise(count = n(), .groups = 'drop') %>% 
-  group_by(treatment.group2) %>%
-  mutate(percentage = (count / sum(count)) * 100) %>%
-  arrange(treatment.group2, ernährung)
-print(diet_summary)
+  group_by(ernährung) %>%
+  summarise(count = n(), percent = (count / nrow(df_wide_choice)) * 100, .groups = 'drop')
 
-# Häufigkeiten und Prozente für Politische Orientierung
-politics_freq <- table(df_wide_choice$politische.O)
-politics_perc <- prop.table(politics_freq) * 100
-print(politics_freq)
-print(politics_perc)
+# Häufigkeiten und Prozentsätze für politische Orientierung, Studierende, Haushaltseinkauf und Einkommen
+politics_summary <- table(df_wide_choice$politische.O)
+studis_summary <- table(df_wide_choice$studierende)
+einkauf_summary <- table(df_wide_choice$einkauf)
+income_summary <- table(df_wide_choice$einkommen)
 
-# Häufigkeiten und Prozente für Studierende
-studis_freq <- table(df_wide_choice$studierende)
-studis_perc <- prop.table(studis_freq) * 100
-print(studis_freq)
-print(studis_perc)
+# Kreuztabellen für Geschlecht und Ernährung, sowie Geschlecht und politische Orientierung
+table_gender_diet <- table(df_wide_choice$geschlecht, df_wide_choice$ernährung)
+print(table_gender_diet)
+table_gender_politics <- table(df_wide_choice$geschlecht, df_wide_choice$politische.O)
+print(table_gender_politics)
 
-# Häufigkeiten und Prozente für Haushaltseinkauf
-einkauf_freq <- table(df_wide_choice$einkauf)
-einkauf_perc <- prop.table(einkauf_freq) * 100
-print(einkauf_freq)
-print(einkauf_perc)
+# Nachhaltige Entscheidungen pro politischer Gruppe und Geschlecht
+sustainable_by_politicalGroup <- df_wide_choice %>%
+  group_by(politische.O) %>%
+  summarise(sum_sustainableChoice = sum(sum_sustainableChoice, na.rm = TRUE), count = n()) %>%
+  mutate(percent_sustainable = (sum_sustainableChoice / (15 * count)) * 100)
 
-# Häufigkeiten und Prozente für Einkommen
-income_freq <- table(df_wide_choice$einkommen)
-income_perc <- prop.table(income_freq) * 100
-print(income_freq)
-print(income_perc)
+sustainable_by_gender <- df_wide_choice %>%
+  group_by(geschlecht) %>%
+  summarise(sum_sustainableChoice = sum(sum_sustainableChoice, na.rm = TRUE), count = n()) %>%
+  mutate(percent_sustainable = (sum_sustainableChoice / (15 * count)) * 100)
 
-# Häufigkeitstabellen 
-table(df_wide_choice$geschlecht, df_wide_choice$ernährung)
-table(df_wide_choice$geschlecht, df_wide_choice$politische.O)
-
-# Summe der nachhaltigen Entscheidungen pro politischer Gruppe
-sustainable_per_politicalGroup <- aggregate(sum_sustainableChoice ~ politische.O, data = df_wide_choice, FUN = sum)
-print(sustainable_per_politicalGroup)
-
-# Count der Teilnehmer pro politischer Gruppe
-count_per_group <- aggregate(participant.code ~ politische.O, data = df_wide_choice, FUN = length)
-
-# Prozentuale Verteilung der nachhaltigen Entscheidungen pro politischer Gruppe
-percent_sustainable_per_group <- merge(sustainable_per_politicalGroup, count_per_group, by = "politische.O")
-percent_sustainable_per_group$percent_sustainable <- (percent_sustainable_per_group$sum_sustainableChoice / (15 * percent_sustainable_per_group$participant.code)) * 100
-print(percent_sustainable_per_group)
-
-# Summe der nachhaltigen Entscheidungen pro Geschlecht
-sustainable_per_gender <- aggregate(sum_sustainableChoice ~ geschlecht, data = df_wide_choice, FUN = sum)
-print(sustainable_per_gender)
-
-# Count der Teilnehmer pro Geschlecht
-count_per_gender <- aggregate(participant.code ~ geschlecht, data = df_wide_choice, FUN = length)
-
-# Prozentuale Verteilung der nachhaltigen Entscheidungen pro Geschlecht
-percent_sustainable_per_gender <- merge(sustainable_per_gender, count_per_gender, by = "geschlecht")
-percent_sustainable_per_gender$percent_sustainable <- (percent_sustainable_per_gender$sum_sustainableChoice / (15 * percent_sustainable_per_gender$participant.code)) * 100
-print(percent_sustainable_per_gender)
-
-# Boxplot erstellen df_tracking
-boxplot(df_tracking$duration)
-# Hier die drei Ausreisser rausschmeissen oder drinnen lassen?
-
-# Q-Q-Plot erstellen df_tracking
+# Boxplot und Q-Q-Plot für Betrachtungsdauer im Tracking
+boxplot(df_tracking$duration, main = "Boxplot der Dauer")
 qqnorm(df_tracking$duration, main = "Q-Q-Plot der Dauer")
 qqline(df_tracking$duration, col = "red")
 
-# Wahl nachhaltiger vs. nicht-nachhaltiger Optionen
+#############################
+
+# Wahl nachhaltiger vs. nicht-nachhaltiger Optionen insgesamt
 choice_counts <- df_long_choice %>%
   group_by(sustainable.choice) %>%
-  summarise(count = n())
+  summarise(count = n(), .groups = 'drop')
 print(choice_counts)
-
-# Nicht-Nachhaltig: 1949
-# Nachhaltig: 4366
 
 # Anzahl nachhaltiger und nicht nachhaltiger Entscheidungen pro Gruppe
 choice_counts_by_group <- df_long_choice %>%
-  group_by(treatment.group2, sustainable.choice) %>%
-  summarise(count = n()) %>%
+  group_by(treatment.group, sustainable.choice) %>%
+  summarise(count = n(), .groups = 'drop') %>%
   mutate(choice_type = ifelse(sustainable.choice == 1, "Nachhaltig", "Nicht Nachhaltig"))
 print(choice_counts_by_group)
+
+# Visualisierung der Anzahl der Entscheidungen pro Gruppe
+ggplot(choice_counts_by_group, aes(x = treatment.group, y = count, fill = choice_type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Anzahl nachhaltiger und nicht nachhaltiger Entscheidungen", 
+       x = "Gruppe", y = "Anzahl der Entscheidungen") +
+  scale_fill_brewer(palette = "Set2")
+
+#############################
 
 # Prozentsätze nachhaltiger und nicht nachhaltiger Entscheidungen pro Gruppe
 choice_percentages_by_group <- df_long_choice %>%
   group_by(treatment.group2) %>%
   summarise(
     count_sustainable = sum(sustainable.choice == 1),
-    count_unsustainable = sum(sustainable.choice == 0),
     total_count = n(),
     nachhaltig = (count_sustainable / total_count) * 100,
-    nicht_nachhaltig = (count_unsustainable / total_count) * 100,
+    nicht_nachhaltig = 100 - nachhaltig,  
     .groups = 'drop'
   ) %>%
-  select(treatment.group2, nachhaltig,  nicht_nachhaltig)
+  select(treatment.group2, nachhaltig, nicht_nachhaltig)
 print(choice_percentages_by_group)
-#                                 Nachhaltig            Nicht-Nachhaltig
-# control                           67.7                     32.3
-# experimental                      69.8                     30.2
+
+#############################
 
 # Mittelwerte und Standardabweichungen
-df_long_choice %>% 
+sustainable_stats <- df_long_choice %>%
   group_by(treatment.group2) %>%
   summarise(
     mean_sustainable_choice = mean(sustainable.choice, na.rm = TRUE),
     sd_sustainable_choice = sd(sustainable.choice, na.rm = TRUE),
-    sd_recall_accuracy = sd(absolut_diff, na.rm = TRUE)
+    .groups = 'drop'
   )
+print(sustainable_stats)
 
 # Häufigkeiten
-table(df_long_choice$treatment.group2)
-table(df_long_choice$sustainable.choice)
+treatment_freq <- table(df_long_choice$treatment.group2)
+choice_freq <- table(df_long_choice$sustainable.choice)
+
+print(treatment_freq)
+print(choice_freq)
 
 #################################################################################################################################
 
-# GRAFISCHE DARSTELLUNG 
+# GRAFISCHE DARSTELLUNG - Demopgrafische Variablen
 
 # Balkendiagramm für Einkommen
 income_freq <- df_wide_choice %>%
@@ -199,10 +160,11 @@ income_freq <- df_wide_choice %>%
 ggplot(income_freq, aes(x = einkommen, y = n, fill = einkommen)) + 
   geom_bar(stat = "identity") + 
   labs(title = "Häufigkeit des monatlichen Einkommens", x = "Monatliches Einkommen", y = "Häufigkeit") + 
-  theme_minimal() + 
   scale_fill_brewer(palette = "Set6") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_y_continuous(limits = c(0, 200))
+
+#############################
 
 # Boxplot für Einkommen nach Geschlecht
 ggplot(df_wide_choice, aes(x = factor(num_geschlecht), y = num_einkommen)) +
@@ -221,6 +183,123 @@ print(cor_matrix)
 
 # Korrelation-Plot erstellen für alle Daten (numerisch)
 corrplot(cor_matrix, method = "circle", type = "upper", tl.col = "black", tl.cex = 0.7)
+
+#################################################################################################################################
+
+# DESKRIPTIVE STATISTIK - Memory Task und Tracking 
+
+# Häufigkeiten der nachhaltigen Entscheidungen und Attribute
+sustainable_freq <- table(df_tracking$sustainable.choice)
+attribute_freq <- table(df_tracking$attributeType)
+
+#############################
+
+# Durchschnittliche Abweichung im Memory Task
+mean_absolut_diff_overall <- mean(df_long_memory$mean_absolut_diff, na.rm = TRUE)
+print(mean_absolut_diff_overall)
+
+# Durchschnittliche Abweichung pro Gruppe
+mean_diff_group <- df_long_memory %>% 
+  group_by(treatment.group) %>% 
+  summarise(mean_diff = mean(mean_absolut_diff, na.rm = TRUE), 
+            .groups = 'drop')
+print(mean_diff_group)
+
+# Visualisierung der durchschnittlichen Abweichung pro Gruppe
+ggplot(mean_diff_group, aes(x = treatment.group, y = mean_diff, fill = treatment.group)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Durchschnittliche Abweichung pro Gruppe", x = "Gruppe", y = "Durchschnittliche Abweichung") +
+  scale_fill_brewer(palette = "Set2")
+
+#############################
+
+# Durchschnittliche Abweichung für bekannte vs. unbekannte CO2-Attribute
+mean_diff_known <- mean(df_long_memory$absolut_diff[df_long_memory$round.number %in% 1:5], na.rm = TRUE)
+mean_diff_unknown <- mean(df_long_memory$absolut_diff[df_long_memory$round.number %in% 6:7], na.rm = TRUE)
+
+# Berechnung und Umstrukturierung für die Visualisierung
+mean_diff_group_by_attributes <- df_long_memory %>%
+  group_by(treatment.group) %>%
+  summarise(
+    mean_diff_known = mean(absolut_diff[round.number %in% 1:5], na.rm = TRUE),
+    mean_diff_unknown = mean(absolut_diff[round.number %in% 6:7], na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  pivot_longer(
+    cols = starts_with("mean_diff"),
+    names_to = "category",
+    values_to = "mean_difference"
+  ) %>%
+  mutate(
+    category = dplyr::recode(category,
+                             mean_diff_known = "Known Attributes",
+                             mean_diff_unknown = "Unknown Attributes"
+    )
+  )
+
+# Visualisierung der Abweichungen pro Gruppe
+ggplot(mean_diff_group_by_attributes, aes(x = treatment.group, y = mean_difference, fill = category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Durchschnittliche Abweichung für bekannte vs. unbekannte CO2-Attribute", x = "Gruppe", y = "Durchschnittliche Abweichung") +
+  scale_fill_brewer(palette = "Set2")
+
+#############################
+
+# Häufigstes und seltenstes gewähltes Lebensmittel
+stimulus_counts <- df_long_choice %>%
+  group_by(food.chosen) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  arrange(desc(count))
+
+# Ergebnisse anzeigen
+cat("Häufigster Stimulus:\n")
+print(stimulus_counts %>% slice(1))
+cat("\nSeltenster Stimulus:\n")
+print(stimulus_counts %>% slice(n()))
+
+#############################
+
+# Durchschnittliche Betrachtungsdauer pro Attribut
+duration_summary <- df_tracking %>%
+  group_by(attributeType) %>%
+  summarise(avg_duration = mean(duration, na.rm = TRUE),
+            total_duration = sum(duration, na.rm = TRUE),
+            count = n(), .groups = 'drop') %>%
+  arrange(desc(avg_duration))
+
+# Visualisierung der durchschnittlichen Betrachtungsdauer
+ggplot(duration_summary, aes(x = reorder(attributeType, -avg_duration), y = avg_duration)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Durchschnittliche Betrachtungsdauer pro Attribut", x = "Attributtyp", y = "Durchschnittliche Dauer (Millisekunden)")
+
+#############################
+
+# Durchschnittliche und gesamte Betrachtungsdauer pro Attribut und Gruppe
+duration_summary_group <- df_tracking %>%
+  group_by(attributeType, treatment.group) %>%
+  summarise(avg_duration = mean(duration, na.rm = TRUE),
+            total_duration = sum(duration, na.rm = TRUE),
+            count = n(), .groups = 'drop')
+
+# Visualisierung der durchschnittlichen Betrachtungsdauer nach Attribut und Gruppe
+ggplot(duration_summary_group, aes(x = attributeType, y = avg_duration, fill = treatment.group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Durchschnittliche Betrachtungsdauer pro Attribut und Gruppe", x = "Attributtyp", y = "Durchschnittliche Dauer (Millisekunden)") +
+scale_fill_brewer(palette = "Set2")
+
+#############################
+
+# Klicks für jede attributeType pro Gruppe
+clicks_summary <- df_tracking %>%
+  group_by(attributeType, treatment.group) %>%
+  summarise(click_count = n(), .groups = 'drop')
+
+# Visualisierung der Klicks pro Attribut und Gruppe
+ggplot(clicks_summary, aes(x = attributeType, y = click_count, fill = treatment.group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Anzahl der Klicks auf Attribute pro Gruppe", x = "Attribut", y = "Anzahl der Klicks") +
+  scale_fill_brewer(palette = "Set2") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 #################################################################################################################################
 
@@ -249,7 +328,7 @@ summary(mod2)
 # Modell 3: Hinzufügen der Pro-Environmental Attitudes und CO2-Emissionen als Kontrollvariablen
 # Z-Standardisierung
 df_long_choice <- df_long_choice %>%
-  mutate(across(c(round.number, sustainability_score, CO2.diff), ~ scale(.)[ ,1]))
+  mutate(across(c(sustainability_score, CO2.diff), ~ scale(.)[ ,1]))
 
 mod3 <- glmer(sustainable.choice ~ round.number + treatment.group2 + 
                 sustainability_score + CO2.diff +
@@ -272,7 +351,7 @@ print(cor_matrix)
 
 # Modell 4: Interaktion zwischen Gruppenzugehörigkeit und Pro-Environmental Attitudes
 # Untersucht, ob die Pro-Umwelt-Einstellungen den Einfluss der Gruppenzugehörigkeit auf die Entscheidung zur Nachhaltigkeit moderieren
-mod4 <- glmer(sustainable.choice ~ treatment.group2 * sustainability_score + 
+mod4 <- glmer(sustainable.choice ~ treatment.group * sustainability_score + 
                 price.diff + CO2.diff + protein.diff + 
                 (1 | participant.id) + (1 | round.stimuliID), 
               data = df_long_choice, 
@@ -293,81 +372,81 @@ ggplot(df_long_choice, aes(x = sustainability_score, y = sustainable.choice, col
 #############################
 
 # Modell 5: Kontrastanalyse
+
 # Unterschiede zwischen den Gruppen (Interventionsgruppen vs. Kontrollgruppe und Label vs. Norm) hinsichtlich ihrer Umwelteinstellungen und deren Einfluss auf nachhaltige Entscheidungen
-emm <- emmeans(mod4, ~ treatment.group2 | sustainability_score)
+emm <- emmeans(mod4, ~ treatment.group | sustainability_score)
 contrast(emm, method = "pairwise", by = "sustainability_score", adjust = "bonferroni")
 
 # Visualisierung der Kontraste
 # Wahrscheinlichkeit, dass Teilnehmer eine nachhaltige Wahl treffen, in Abhängigkeit von der Behandlungsgruppe (Kontrollgruppe vs. Experimentalgruppe)
 emm_df <- as.data.frame(emm)
-emm_df$probability <- plogis(emm_df$emmean)  # Wahrscheinlichkeit
+emm_df$probability <- plogis(emm_df$emmean) 
 
 # Konfidenzintervalle berechnen
 emm_df$lower_ci <- plogis(emm_df$emmean - (1.96 * emm_df$SE))  # Unteres CI
 emm_df$upper_ci <- plogis(emm_df$emmean + (1.96 * emm_df$SE))  # Oberes CI
 
 # Plot erstellen
-ggplot(emm_df, aes(x = treatment.group2, y = probability, color = treatment.group2)) +
+ggplot(emm_df, aes(x = treatment.group, y = probability, color = treatment.group)) +
   geom_point(size = 3) +  # Punkte anzeigen
   geom_errorbar(aes(ymin = lower_ci, ymax = upper_ci), width = 0.2) +  # Konfidenzintervalle
   labs(title = "Wahrscheinlichkeit der nachhaltigen Wahl nach Behandlungsgruppe",
        x = "Behandlungsgruppe",
-       y = "Wahrscheinlichkeit der nachhaltigen Wahl") +
-  theme_minimal()
+       y = "Wahrscheinlichkeit der nachhaltigen Wahl")
 
 #################################################################################################################################
 
 # H4: MULTILEVEL REGRESSION ANALYSIS: RECALL ACCURACY
+
 # Hinzufügen der Variable, ob die Kohlenstoffattribute, die beim Memory-Test abgefragt werden, angesehen wurden
-# Nur von den relevanten round.stimuliID, die im memory_task abgefragt werden: 7, 8, 14, 9, 11
 interested_stimuli <- c(7, 8, 14, 9, 11)
 
-# Trimme führende und nachfolgende Leerzeichen in der attributeType-Spalte
-df_tracking <- df_tracking %>%
-  mutate(attributeType = trimws(attributeType))
-
-# Hinzufügen der Variable, ob das Kohlenstoffattribut in den interessierenden Runden angesehen wurde
 df_trackingCO2 <- df_tracking %>%
   group_by(participant.id) %>%
   summarise(
-    carbon_viewed = as.integer(any(attributeType == "CO2e/ kg" & stimulusID %in% interested_stimuli)),
+    carbon_viewed = ifelse(any(attributeType == "co2e/kg" & stimulusID %in% interested_stimuli), 1, 0),
     .groups = 'drop'
   )
 
-# Umwandlung der participant.id in einen Faktor
-df_trackingCO2 <- df_trackingCO2 %>%
-  mutate(participant.id = as.factor(participant.id))
+df_trackingCO2$participant.id <- as.character(df_trackingCO2$participant.id)
 
-# Umwandlung der participant.id in einen Faktor in df_long_choice
-df_long_choice <- df_long_choice %>%
-  mutate(participant.id = as.factor(participant.id))
-
-# Merge df_trackingCO2 mit df_long_choice
 df_long_choice <- df_long_choice %>%
   left_join(df_trackingCO2, by = "participant.id")
 
-# Visualisierung 
+#############################
+
+model5 <- lmer(mean_absolut_diff ~ treatment.group + carbon_viewed + sustainability_score + (1 | participant.id), 
+               data = df_long_choice,
+               control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e6)))
+summary(model5)
+
+# Visualisierung: Scatterplot für sustainability_score
+ggplot(df_long_choice, aes(x = sustainability_score, y = mean_absolut_diff, color = treatment.group)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +  
+  labs(title = "Mean Absolute Difference vs. Sustainability Score",
+       x = "Sustainability Score",
+       y = "Mean Absolute Difference")
+
+# Visualisierung: Scatterplot für carbon_viewed
 ggplot(df_long_choice, aes(x = carbon_viewed, y = mean_absolut_diff, color = treatment.group)) +
-  geom_point(alpha = 0.7) +
-  geom_smooth(method = "lm", se = TRUE) +
-  labs(title = "Recall-Accuracy je nach Gruppenzugehörigkeit und CO2-Ansicht", x = "CO2-Attribut angesehen (0 = Nein, 1 = Ja)", y = "Recall-Accuracy") +
-  theme_minimal() +
-  scale_color_manual(values = c("control" = "red", "label" = "blue", "norm" = "green"))
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(title = "Mean Absolute Difference vs. Carbon Viewed",
+       x = "Carbon Viewed",
+       y = "Mean Absolute Difference")
 
 #############################
 
-
-
-
-
-# DAS FUNKTIONIERT NOCH NICHT 
-
-
-
 # Multilevel-Regression für Recall Accuracy abhängig davon, ob das Carbon Attribut gesehen wurde sowie von den Umwelt-Werten
-model_recall <- lmer(mean_absolut_diff ~ treatment.group + carbon_viewed + sustainability_score +
-                     (1 | participant.id) + (1 | round.stimuliID), 
-                   data = df_long_choice)
+# NAs in carbon_viewed entfernen? Probanden in df_long_choice enthalten aber nicht in df_tracking 
+df_long_choice <- df_long_choice %>%
+  mutate(carbon_viewed = replace_na(carbon_viewed, 0))
+
+model_recall <- lmer(mean_absolut_diff ~ treatment.group + carbon_viewed + sustainability_score + 
+                             (1 | participant.id), 
+                             data = df_long_choice, 
+                             control = lmerControl(optimizer = "nloptwrap"))
 summary(model_recall)
 
 # Interaktioneffekte: Gruppenzugehörigkeit und Ansehen des Carbon Attributs auf Recall Accuracy 
@@ -377,7 +456,7 @@ mod_interaction_recall <- lmer(mean_absolut_diff ~ treatment.group * carbon_view
 summary(mod_interaction_recall)
 
 # Kontraste zur Untersuchung der Gruppenunterschiede
-emm <- emmeans(mod_recall_interaction, ~ treatment.group | sustainability_score)
+emm <- emmeans(mod_interaction_recall, ~ treatment.group | sustainability_score)
 contrast(emm)
 
 # Visualisierung der Recall-Accuracy
@@ -413,51 +492,35 @@ ggplot(data = df_long_choice[as.numeric(substr(df_long_choice$participant.id, 1,
 # T-TESTS /ANOVA
 
 # Vergleich der Anzahl nachhaltiger Entscheidungen zwischen den beiden experimentellen Gruppen und der Kontrollgruppe
-# Daten korrekt bereinigen und vorbereiten
 control <- df_long_choice %>% filter(treatment.group == "control")
 label <- df_long_choice %>% filter(treatment.group == "label")
 norm <- df_long_choice %>% filter(treatment.group == "norm")
 
 #############################
 
-# Anzahl der nachhaltigen Entscheidungen pro Gruppe
-sustainable_counts <- df_long_choice %>%
-  group_by(treatment.group) %>%
-  summarise(sustainable_choices = sum(sustainable.choice))
-print(sustainable_counts)
-
-# Boxplot zur Visualisierung der Verteilung nachhaltiger Entscheidungen in den drei Gruppen
-ggplot(df_long_choice, aes(x = treatment.group, y = sustainable.choice, fill = treatment.group)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Anzahl nachhaltiger Entscheidungen pro Gruppe",
-       x = "Gruppe",
-       y = "Anzahl nachhaltiger Entscheidungen") 
-
-# T-Test zwischen control und label
-controllabel <- t.test(control$sustainable.choice, label$sustainable.choice)
-print(controllabel)
+# T-Tests zwischen den Gruppen
+controllabel <- t.test(control$sustainable.choice, label$sustainable.choice) 
+print(controllabel) 
 # Unterschied zwischen den Mittelwerten der nachhaltigen Entscheidungen in der Kontroll- und Labelgruppe statistisch nicht signifikant
 
-# T-Test zwischen control und norm
-controlnorm <- t.test(control$sustainable.choice, norm$sustainable.choice)
-print(controlnorm)
+controlnorm <- t.test(control$sustainable.choice, norm$sustainable.choice) 
+print(controlnorm) 
 # Unterschied zwischen den Mittelwerten der nachhaltigen Entscheidungen in der Kontroll- und Normgruppe statistisch nicht signifikant
 
 # ANOVA für nachhaltige Entscheidungen zwischen den Gruppen
-anova_model <- aov(sustainable.choice ~ treatment.group, data = df_long_choice)
-anova_summary <- summary(anova_model)
-print(anova_summary)
+anova_model <- aov(sustainable.choice ~ treatment.group, data = df_long_choice) 
+print(summary(anova_model)) 
 # Kein signifikanter Unterschied 
 
 # ANOVA für Recall Accuracy
-anova_recall_accuracy <- aov(mean_absolut_diff ~ treatment.group2, data = df_long_choice)
-summary(anova_recall_accuracy)
-# Äusserst Signifikanter Unterschied in der Recall Accuracy zwischen den Behandlungsgruppen
+anova_recall_accuracy <- aov(mean_absolut_diff ~ treatment.group2, data = df_long_choice) 
+print(summary(anova_recall_accuracy)) 
+# Äusserst signifikanter Unterschied in der Recall Accuracy zwischen den Behandlungsgruppen
 
 # ANOVA für Pro-Environmental Attitudes
-anova_pro_env <- aov(sustainability_score ~ treatment.group, data = df_long_choice)
-summary(anova_pro_env)
-# Sehr signifikanter Unterschied zwischen den Mittelwerten der Nachhaltigkeitswerte (sustainability_score) in den verschiedenen Behandlungsgruppen (treatment.group)
+anova_pro_env <- aov(sustainability_score ~ treatment.group, data = df_long_choice) 
+print(summary(anova_pro_env)) 
+# Sehr signifikanter Unterschied zwischen den Mittelwerten der Nachhaltigkeitswerte in den verschiedenen Behandlungsgruppen
 
 #################################################################################################################################
 
@@ -465,20 +528,20 @@ summary(anova_pro_env)
 
 # 1. Recall Performance
 # Analyse der Recall-Performance in Abhängigkeit von den Umwelteinstellungen
-model_recall2 <- lmer(mean_absolut_diff ~ sustainability_score + treatment.group + (1 | participant.id), data = df_long_choice)
+# df_long_choice$mean_absolut_diff <- scale(df_long_choice$mean_absolut_diff)
+# df_long_choice$sustainability_score <- scale(df_long_choice$sustainability_score)
+# df_long_choice$participant.id <- as.factor(df_long_choice$participant.id)
+
+model_recall2 <- lmer(mean_absolut_diff ~ sustainability_score + treatment.group + 
+                        (1 | participant.id), 
+                      data = df_long_choice, 
+                      control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e6)))
 summary(model_recall2)
 
 # 2. Impact of Pro-environmental Attitudes
 # Vergleich der Recall-Leistung basierend auf den Umweltwerten
-model_pro_env <- lmer(mean_absolut_diff ~ sustainability_score + (1 | participant.id), data = df)
+model_pro_env <- lmer(mean_absolut_diff ~ sustainability_score + (1 | participant.id), data = df_long_choice)
 summary(model_pro_env)
-
-
-# BIS HIER OBEN DIE ERSTEN BEIDEN FUNKTIONIEREN NOCH NICHT 
-
-
-
-
 
 # Visualisierung der Recall-Leistung in Abhängigkeit von den Umweltwerten
 ggplot(df_long_choice, aes(x = sustainability_score, y = mean_absolut_diff)) +
@@ -486,8 +549,7 @@ ggplot(df_long_choice, aes(x = sustainability_score, y = mean_absolut_diff)) +
   geom_smooth(method = "lm", se = FALSE) +
   labs(title = "Recall Performance vs. Pro-Environmental Attitudes", 
        x = "Pro-Environmental Attitudes", 
-       y = "Recall Performance (Absolute Difference)") +
-  theme_minimal()
+       y = "Recall Performance (Absolute Difference)")
 
 # 3. Effect of Interventions
 # Analyse der Auswirkungen der Interventionen auf die Betrachtung von Umweltattributen
@@ -500,8 +562,21 @@ ggplot(tracking_data_intervention, aes(x = treatment.group, y = carbon_viewed_me
   geom_bar(stat = "identity", fill = "skyblue") +
   labs(title = "Durchschnittlicher Carbon View nach Behandlungsgruppe",
        x = "Behandlungsgruppe",
-       y = "Durchschnittlicher Carbon View") +
-  theme_minimal()
+       y = "Durchschnittlicher Carbon View")
+
+#############################
+
+# 4. Predictive Relationships
+# Analyse, ob Umweltbedenken das Suchverhalten vorhersagen können
+model_search_behavior <- glmer(
+  sustainable.choice ~ sustainability_score + carbon_viewed + (1 | participant.id),
+  data = df_long_choice,
+  family = binomial,
+  control = glmerControl(optCtrl = list(maxfun = 1e5), check.conv.grad = .makeCC("warning", tol = 0.005))
+)
+summary(model_search_behavior)
+# positive und signifikante Beziehung zwischen dem sustainability_score und der Wahrscheinlichkeit, eine nachhaltige Wahl zu treffen, zeigt, dass Teilnehmer mit höheren Bewertungen in Bezug auf Nachhaltigkeit eher nachhaltige Entscheidungen treffen
+# Schätzwert für carbon_viewed ist positiv, aber nicht signifikant
 
 #############################
 
@@ -519,54 +594,59 @@ last_viewed <- df_tracking %>%
   select(participant.id, round.number, combined_var) %>%
   rename(last_attribute_viewed = combined_var)
 
-first_viewed$participant.id <- as.character(first_viewed$participant.id)
-last_viewed$participant.id <- as.character(last_viewed$participant.id)
+# Umwandeln in einen Faktor
+df_long_choice$participant.id <- as.factor(df_long_choice$participant.id)
+first_viewed$participant.id <- as.factor(first_viewed$participant.id)
+last_viewed$participant.id <- as.factor(last_viewed$participant.id)
 
 # Mergen der neuen Variablen mit dem Hauptdatensatz
 df_long_choice <- df_long_choice %>%
   left_join(first_viewed, by = c("participant.id", "round.number")) %>%
   left_join(last_viewed, by = c("participant.id", "round.number"))
 
-# 4. Predictive Relationships
-# Analyse, ob Umweltbedenken das Suchverhalten vorhersagen können
-model_search_behavior <- glmer(sustainable.choice ~ sustainability_score + carbon_viewed + (1 | participant.id), data = df_long_choice, family = binomial)
-summary(model_search_behavior)
-# positive und signifikante Beziehung zwischen dem sustainability_score und der Wahrscheinlichkeit, eine nachhaltige Wahl zu treffen, zeigt, dass Teilnehmer mit höheren Bewertungen in Bezug auf Nachhaltigkeit eher nachhaltige Entscheidungen treffen
-# Schätzwert für carbon_viewed ist positiv, aber nicht signifikant
-
 #############################
-
-
-
-
-
-
-# Das hier geht noch nicht
-
-
-
-
 
 # Explorative Analyse: Suchen von Mustern in der Informationssuche und deren Einfluss auf Essensentscheidungen
 model_choice_patterns <- glmer(sustainable.choice ~ first_attribute_viewed + last_attribute_viewed + (1 | participant.id), 
                                data = df_long_choice, 
-                               family = binomial)
+                               family = binomial, 
+                               control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e5)))
+summary(model_choice_patterns)
+
+# Einfluss dessen, ob in der vorherigen Rund das CO2 Attribut zuletzt gesehen wurde darauf, ob in der nächsten Runde vermehrt die Nachhaltige Wahl getroffen wurde
+df_long_choice <- df_long_choice %>%
+  mutate(previous_CO2_viewed = lag(ifelse(last_attribute_viewed == "B_co2e/kg", 1, 0), order_by = round.number))
+
+model_CO2_effect <- glmer(sustainable.choice ~ previous_CO2_viewed + round.number + 
+                            (1 | participant.id), 
+                          data = df_long_choice, 
+                          family = binomial, 
+                          control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e5)))
+summary(model_CO2_effect)
+# previous_CO2_viewed: Positiver Schätzwert aber nicht signfikant
+# Leichter Anstieg in der Wahrscheinlichkeit, eine nachhaltige Wahl zu treffen, wenn das CO2-Attribut in der vorherigen Runde zuletzt angesehen wurde
 
 # 5. Robustness Check
 # Exklusion der Teilnehmer, die den Verständnischeck beim ersten Versuch bestanden haben
 df_excluded <- df_long_choice %>% filter(comp.check1== 0)  
 
 # Wiederholung der Analysen nach Ausschluss
-model_recall_excluded <- lmer(mean_absolut_diff ~ sustainability_score + treatment.group + (1 | participant.id), data = df_excluded)
+model_recall_excluded <- lmer(mean_absolut_diff ~ sustainability_score + treatment.group + (1 | participant.id),
+                              data = df_excluded,
+                              control = lmerControl(optimize = "bobyqa"))
 summary(model_recall_excluded)
 
 model_pro_env_excluded <- lmer(mean_absolut_diff ~ sustainability_score + (1 | participant.id), data = df_excluded)
 summary(model_pro_env_excluded)
 
-model_search_behavior_excluded <- glm(sustainable.choice ~ sustainability_score + carbon_viewed + (1 | participant.id), data = df_excluded, family = binomial)
+model_search_behavior_excluded <- glmer(sustainable.choice ~ sustainability_score + carbon_viewed + (1 | participant.id), 
+                                        data = df_excluded, 
+                                        family = binomial)
 summary(model_search_behavior_excluded)
 
-model_choice_patterns_excluded <- glm(sustainable.choice ~ first_attribute_viewed + last_attribute_viewed + (1 | participant.id), data = df_excluded, family = binomial)
+model_choice_patterns_excluded <- glmer(sustainable.choice ~ first_attribute_viewed + last_attribute_viewed + (1 | participant.id), 
+                                        data = df_excluded, 
+                                        family = binomial)
 summary(model_choice_patterns_excluded)
 
 #################################################################################################################################

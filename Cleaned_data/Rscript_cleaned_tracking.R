@@ -17,10 +17,31 @@ df_tracking <- df_tracking %>%
 
 #############################
 
-# Hinzufügen der Variable sustainable.choice
+# Aggregiere df_long_choice nach participant.id
+df_long_choice_agg <- df_long_choice %>%
+  group_by(participant.id) %>%
+  summarise(
+    sustainable.choice = first(sustainable.choice),
+    treatment.group = first(treatment.group)
+  )
+
+# Führe den Join mit der aggregierten Tabelle durch
 df_tracking <- df_tracking %>%
-  left_join(df_long_choice %>% select(participant.code, round.number, sustainable.choice),
-            by = c("participant.code", "round.number"))
+  left_join(df_long_choice_agg, by = "participant.id")
+
+# Bereinigen der Kategorien in `attributeType`
+df_tracking <- df_tracking %>%
+  mutate(
+    attributeType = str_to_lower(trimws(attributeType)), 
+    attributeType = case_when(
+      attributeType %in% c("preis", "price") ~ "price",
+      attributeType %in% c("co2e/ kg", "co2e/kg", "co2", "co2e", "co2e/kg") ~ "co2e/kg",
+      attributeType %in% c("protein", "eiweiß") ~ "protein",
+      TRUE ~ attributeType
+    )
+  )
+
+#############################
 
 # Hinzufügen einer neuen Variablen-Kombination aus element_id und attributeType
 df_tracking <- df_tracking %>%
@@ -31,37 +52,18 @@ df_tracking <- df_tracking %>%
       str_detect(element_id, "B") ~ "B",
       TRUE ~ NA_character_
     ),
-    # Ersetze attributeType durch kurze Namen und entferne Leerzeichen
-    attribute_short = case_when(
-      attributeType == "Preis" ~ "preis",
-      attributeType == "CO2e/ kg" ~ "carbon",   
-      attributeType == "Protein" ~ "protein",
-      TRUE ~ str_replace_all(attributeType, " ", "") 
-    )
+    combined_var = paste0(letter, "_", attributeType)
   ) %>%
-  # Kombiniere die beiden Variablen
-  mutate(combined_var = paste0(letter, "_", attribute_short)) %>%
-  
   # Entferne die nicht mehr benötigten Variablen
-  select(-letter, -attribute_short)
+  select(-letter)
 
 #################################################################################################################################
 
-# Hinzufügen von treatment.group
-df_cleaned_unique <- df_long_choice %>%
-  select(participant.code, treatment.group) %>%
-  distinct()
-
-df_tracking <- df_tracking %>%
-  left_join(df_cleaned_unique, by = "participant.code")
-
+# Hinzufügen von treatment.group2
 df_tracking <- df_tracking %>%
   mutate(treatment.group2 = ifelse(treatment.group %in% c("label", "norm"), "experimental", "control"))
 
 #############################
-
-## Struktur des Datensatzes überprüfen
-str(df_tracking)
 
 # Daten exportieren
 save(df_tracking, file = "/Users/ausleihe/Desktop/daten/Cleaned_data/df_tracking.Rdata")

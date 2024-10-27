@@ -123,6 +123,10 @@ mean_absolut_diff <- df_long_memory %>%
 df_long_memory <- df_long_memory %>%
   left_join(mean_absolut_diff, by = "participant.id")
 
+#treatment.group hinzufügen aus df_wide_choice
+df_long_memory <- df_long_memory %>%
+  left_join(df_wide_choice %>% select(participant.code, treatment.group), by = "participant.code")
+
 #############################
 
 # Daten exportieren

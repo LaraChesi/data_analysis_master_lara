@@ -159,16 +159,18 @@ df_long_choice <- df_long_choice %>%
   mutate(treatment.group2 = ifelse(treatment.group %in% c("label", "norm"), "experimental", "control"))
 df_long_choice$treatment.group2 <- as.factor(df_long_choice$treatment.group2)
 
-# Variable mean_sbsolut_diff hinzufügen
+# Variable mean_absolut_diff hinzufügen
 df_long_choice <- df_long_choice %>%
   left_join(mean_absolut_diff %>% select(participant.id, mean_absolut_diff), 
             by = "participant.id")  
 
 # Variable sustainability_score hinzufügen
-df_long_choice <- merge(df_long_choice, 
-                        df_wide_choice[, c("participant.code", "sustainability_score")], 
-                        by = "participant.code", 
-                        all.x = TRUE)
+df_long_choice <- left_join(df_long_choice, 
+                            select(df_wide_choice, participant.code, sustainability_score), 
+                            by = "participant.code")
+
+# Konvertieren von participant.id in df_long_choice in einen character-Typ
+df_long_choice$participant.id <- as.character(df_long_choice$participant.id)
 
 ################################################################################################################################# 
 
