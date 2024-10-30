@@ -141,7 +141,7 @@ df_wide_choice <- df_wide_choice %>%
 ################################################################################################################################# 
 
 # Sustainability Score
-#Berechnung der Scores für die drei Fragebögen
+# Berechnung der Scores für die drei Fragebögen
 df_wide_choice <- df_wide_choice %>%
   mutate(
     score_fragebogen_1 = rowMeans(select(., frage_1:frage_4), na.rm = TRUE),
@@ -183,5 +183,5 @@ head(df_wide_choice$sum_sustainableChoice)
 ################################################################################################################################# 
 
 # Daten exportieren
-save(df_wide_choice, file = "/Users/ausleihe/Desktop/daten/Cleaned_data/df_wide_choice.Rdata")
+save(df_wide_choice, file = "/Users/ausleihe/data_analysis_master_lara/Cleaned_data/df_wide_choice.Rdata")
 
