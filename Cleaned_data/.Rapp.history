@@ -1,3 +1,5 @@
 load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_tracking.Rdata")
 load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_wide_choice.Rdata")
 load("/Users/ausleihe/Desktop/daten/Cleaned_data/df_long_choice.Rdata")
+load("/Users/ausleihe/data_analysis_master_lara/Cleaned_data/df_long_memory.Rdata")
+load("/Users/ausleihe/data_analysis_master_lara/Cleaned_data/df_wide_choice.Rdata")

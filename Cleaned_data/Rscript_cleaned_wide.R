@@ -9,7 +9,7 @@ library(psych)
 #################################################################################################################################
 
 # Daten einlesen 
-df_wide_choice <- read_delim("/Users/ausleihe/Desktop/daten/Raw_data/all_apps_wide_2024-10-22.csv", delim = ",")
+df_wide_choice <- read_delim("/Users/ausleihe/data_analysis_master_lara/Raw_data/all_apps_wide_2024-12-08.csv", delim = ",")
 
 #############################
 
@@ -140,28 +140,26 @@ df_wide_choice <- df_wide_choice %>%
 
 ################################################################################################################################# 
 
-# Sustainability Score
-# Berechnung der Scores für die drei Fragebögen
+# Sustainability Score und Norm Questionnaire
 df_wide_choice <- df_wide_choice %>%
   mutate(
-    score_fragebogen_1 = rowMeans(select(., frage_1:frage_4), na.rm = TRUE),
-    score_fragebogen_2 = rowMeans(select(., frage_5:frage_6), na.rm = TRUE),
-    score_fragebogen_3 = rowMeans(select(., frage_7:frage_8), na.rm = TRUE)
+    score_fragebogen_1 = rowMeans(across(frage_1:frage_4), na.rm = TRUE),  # Climate Concern
+    score_fragebogen_2 = rowMeans(across(frage_5:frage_6), na.rm = TRUE),  # Pro-Environmental Norms
+    score_fragebogen_3 = rowMeans(across(frage_7:frage_8), na.rm = TRUE),  # Social Norms
+    sustainability_score = rowMeans(cbind(score_fragebogen_1, score_fragebogen_2), na.rm = TRUE),  # Nur die ersten beiden Fragebögen
+    norm_questionnaire = score_fragebogen_3  # Der dritte Fragebogen separat
   )
 
-# Korrelationen zwischen den Ergebnissen der drei Fragebögen
-cor_matrix <- cor(df_wide_choice %>% select(score_fragebogen_1, score_fragebogen_2, score_fragebogen_3), use = "complete.obs")
+# Korrelationen zwischen den Ergebnissen der Fragebögen
+cor_matrix <- cor(df_wide_choice %>%
+                    select(score_fragebogen_1, score_fragebogen_2, norm_questionnaire), 
+                  use = "complete.obs")
 print(cor_matrix)
-# Moderate positive Korrelation zwischen den Fragebögen 
 
-# Konsistenzprüfung
-alpha_result <- alpha(df_wide_choice %>% select(score_fragebogen_1, score_fragebogen_2, score_fragebogen_3))
+# Konsistenzprüfung für Sustainability Score (erste beiden Fragebögen)
+alpha_result <- alpha(df_wide_choice %>%
+                        select(score_fragebogen_1, score_fragebogen_2))
 print(alpha_result)
-# akzeptable bis gute interne Konsistenz für die aggregierten Scores der drei Fragebögen
-
-# Aggregation der Scores
-df_wide_choice <- df_wide_choice %>%
-  mutate(sustainability_score = rowMeans(select(., score_fragebogen_1:score_fragebogen_3), na.rm = TRUE))
 
 #################################################################################################################################
 

@@ -2,8 +2,19 @@ library(tidyverse)
 library(stringr) 
 
 # Daten einlesen 
-df_tracking <- read_delim("/Users/ausleihe/Desktop/daten/Raw_data/tracking_demo_2024-10-22.csv", delim = ",") %>% na.omit()
-dim(df_tracking)
+df_tracking <- read_delim("/Users/ausleihe/data_analysis_master_lara/Raw_data/custom_tracking_demo_2024-12-08.csv", delim = ",")
+df_tracking_not.custom <- read_delim("/Users/ausleihe/data_analysis_master_lara/Raw_data/tracking_demo_2024-12-08.csv", delim = ",")
+
+#############################
+
+# Nur die ProbandInnen beibehalten, die bis page 90 gekommen sind
+participants_reached_90_or_more <- df_tracking_not.custom %>%
+  filter(participant._index_in_pages >= 90) %>%
+  pull(participant.code) 
+
+# Jetzt die Probanden, die weniger als Seite 90 erreicht haben, ausschließen
+df_tracking_not.custom <- df_tracking_not.custom %>%
+  filter(participant.code %in% participants_reached_90_or_more)
 
 #############################
 
@@ -16,6 +27,9 @@ df_tracking <- df_tracking %>%
   )
 
 #############################
+
+df_tracking <- df_tracking %>%
+  mutate(participant.id = as.character(participant.id))
 
 # Aggregiere df_long_choice nach participant.id
 df_long_choice_agg <- df_long_choice %>%
@@ -57,14 +71,59 @@ df_tracking <- df_tracking %>%
   # Entferne die nicht mehr benötigten Variablen
   select(-letter)
 
-#################################################################################################################################
+df_tracking <- df_tracking %>%
+  mutate(
+    carbon_viewed = case_when(
+      combined_var %in% c("A_co2e/kg", "B_co2e/kg") ~ 1,  
+      TRUE ~ 0
+    )
+  )
 
 # Hinzufügen von treatment.group2
 df_tracking <- df_tracking %>%
   mutate(treatment.group2 = ifelse(treatment.group %in% c("label", "norm"), "experimental", "control"))
 
+#################################################################################################################################
+
+# Jetzt df_tracking_not.custom und df_tracking zusammenfügen
+vars_to_extract <- c(
+  "participant.id_in_session",
+  "participant.code",
+  "player.choice",
+  "player.choice_sustainable",
+  "player.treatment"
+)
+
+df_tracking_not.custom_selected <- df_tracking_not.custom %>%
+  select(all_of(vars_to_extract))
+
+# Schritt 2: Sicherstellen, dass beide Datensätze die gleiche `participant.id_in_session` enthalten
+# Konvertiere IDs in Zeichen, falls nötig
+df_tracking <- df_tracking %>%
+  mutate(participant.id = as.character(participant.id))
+
+df_tracking_not.custom_selected <- df_tracking_not.custom_selected %>%
+  mutate(participant.id_in_session = as.character(participant.id_in_session))
+
+# Umbenennen der Spalte `participant.id_in_session` in `df_tracking_not.custom_selected`
+df_tracking_not.custom_selected <- df_tracking_not.custom_selected %>%
+  rename(participant.id = participant.id_in_session)
+
+df_tracking_not.custom_selected <- df_tracking_not.custom_selected %>%
+  group_by(participant.id) %>%
+  summarise(
+    participant.code = first(participant.code),
+    player.choice = first(player.choice),
+    player.choice_sustainable = first(player.choice_sustainable),
+    player.treatment = first(player.treatment)
+  )
+
+# Join durchführen
+df_tracking <- df_tracking %>%
+  left_join(df_tracking_not.custom_selected, by = "participant.id")
+
 #############################
 
 # Daten exportieren
-save(df_tracking, file = "/Users/ausleihe/Desktop/daten/Cleaned_data/df_tracking.Rdata")
+save(df_tracking, file = "/Users/ausleihe/data_analysis_master_lara/Cleaned_data/df_tracking.Rdata")
 

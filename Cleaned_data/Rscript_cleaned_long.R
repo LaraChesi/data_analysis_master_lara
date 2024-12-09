@@ -8,7 +8,7 @@ library(dplyr)
 #################################################################################################################################
 
 # Daten einlesen 
-df_long_choice <- read_delim("/Users/ausleihe/Desktop/daten/Raw_data/all_apps_wide_2024-10-22.csv", delim = ",")
+df_long_choice <- read_delim("/Users/ausleihe/data_analysis_master_lara/Raw_data/all_apps_wide_2024-12-08.csv", delim = ",")
 
 #############################
 
@@ -35,26 +35,18 @@ df_long_choice <- df_long_choice %>%
 
 # In Long-Format umwandeln
 df_long_choice <- df_long_choice %>%
-  mutate(across(starts_with("tracking_demo.") | starts_with("memory_task.") | 
-                  starts_with("NEPR_scale.") | starts_with("demographics.") | 
-                  starts_with("num_"), as.character))
-
-df_long_choice <- df_long_choice %>%
   pivot_longer(
-    cols = starts_with("tracking_demo.") | 
-      starts_with("memory_task.") | 
-      starts_with("NEPR_scale.") | 
-      starts_with("demographics.") | 
-      starts_with("num_"),  
-    names_to = c("round", ".value"),
-    names_pattern = "(\\d+)\\.(.*)"
+    cols = starts_with("tracking_demo."), 
+    names_to = c("round", ".value"),     
+    names_pattern = "tracking_demo\\.(\\d+)\\.(.*)", 
+    values_drop_na = TRUE                 
   )
 
 #############################
 
 # Entfernen von NA-Werten in 'player.treatment'
-df_long_choice <- df_long_choice %>%
-  filter(!is.na(player.treatment))
+#df_long_choice <- df_long_choice %>%
+#  filter(!is.na(player.treatment))
 
 #################################################################################################################################
 
@@ -72,7 +64,7 @@ df_long_choice <- df_long_choice %>%
     round = round - 1,  
     roundstimuliID = sapply(round, function(i) {
       order_list <- stimuli_order[[1]]
-      round_index <- i  
+      round_index <- i
       if (round_index >= 0 && round_index < length(order_list)) {
         return(order_list[round_index + 1])
       } else {
@@ -160,9 +152,9 @@ df_long_choice <- df_long_choice %>%
 df_long_choice$treatment.group2 <- as.factor(df_long_choice$treatment.group2)
 
 # Variable mean_absolut_diff hinzufügen
-df_long_choice <- df_long_choice %>%
-  left_join(mean_absolut_diff %>% select(participant.id, mean_absolut_diff), 
-            by = "participant.id")  
+# df_long_choice <- df_long_choice %>%
+#   left_join(mean_absolut_diff %>% select(participant.id, mean_absolut_diff), 
+#            by = "participant.id")  
 
 # Variable sustainability_score hinzufügen
 df_long_choice <- left_join(df_long_choice, 
@@ -180,14 +172,15 @@ df_long_choice <- df_long_choice %>%
     price.diff = as.numeric(gsub(",", ".", price.diff)),
     protein.diff = as.numeric(gsub(",", ".", protein.diff)),
     CO2.diff = as.numeric(as.character(CO2.diff)),
-    participant.id = as.numeric(as.character(participant.id)),
     sustainable.choice = as.numeric(sustainable.choice),
-    mean_absolut_diff = as.numeric(as.character(mean_absolut_diff)),
     sustainability_score = as.numeric(as.character(sustainability_score))
   )
 
 ################################################################################################################################# 
 
 # Daten exportieren
-save(df_long_choice, file = "/Users/ausleihe/Desktop/daten/Cleaned_data/df_long_choice.Rdata")
+save(df_long_choice, file = "/Users/ausleihe/data_analysis_master_lara/Cleaned_data/df_long_choice.Rdata")
+
+cat("Einzigartige 'participant.id':", length(unique(df_long_choice$participant.id)), "\n")
+cat("Einzigartige 'participant.code':", length(unique(df_long_choice$participant.code)), "\n")
 

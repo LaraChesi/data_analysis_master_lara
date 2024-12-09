@@ -5,7 +5,7 @@ library(dplyr)
 #################################################################################################################################
 
 # Daten einlesen 
-df_long_memory <- read_delim("/Users/ausleihe/Desktop/daten/Raw_data/memory_task_2024-10-22.csv", delim = ",")
+df_long_memory <- read_delim("/Users/ausleihe/data_analysis_master_lara/Raw_data/memory_task_2024-12-08.csv", delim = ",")
 
 #############################
 
@@ -111,24 +111,46 @@ df_long_memory <- df_long_memory %>%
 
 #############################
 
-# sum_susatinableChoices aus df_wide_choice einfügen
+# Standardisiere `participant.id` und `participant.code` überall
+standardize_types <- function(data) {
+  data %>%
+    mutate(
+      participant.id = as.character(participant.id),
+      participant.code = as.character(participant.code)
+    )
+}
+
+df_long_memory <- standardize_types(df_long_memory)
+df_wide_choice <- standardize_types(df_wide_choice)
+df_long_choice <- standardize_types(df_long_choice)
+
+#############################
+
+# sum_sustainableChoices aus df_wide_choice einfügen
 df_long_memory <- df_long_memory %>%
   left_join(df_wide_choice %>% select(participant.code, sum_sustainableChoice), by = "participant.code")
 
-# Berechnung des Durchschnitts der absoluten Differenzen im Memory Task 
+# Berechnung des Durchschnitts der absoluten Differenzen im Memory Task
 mean_absolut_diff <- df_long_memory %>%
   group_by(participant.id) %>%
-  summarise(mean_absolut_diff = mean(absolut_diff, na.rm = TRUE))  
+  summarise(mean_absolut_diff = mean(absolut_diff, na.rm = TRUE), .groups = "drop")
 
+#############################
+
+# Füge mean_absolut_diff in df_long_memory ein
 df_long_memory <- df_long_memory %>%
   left_join(mean_absolut_diff, by = "participant.id")
 
-#treatment.group hinzufügen aus df_wide_choice
+# Variable mean_absolut_diff von df_long_memory zu df_long_choice exportieren
+df_long_choice <- df_long_choice %>%
+  left_join(mean_absolut_diff, by = "participant.id")
+
+# treatment.group hinzufügen aus df_wide_choice
 df_long_memory <- df_long_memory %>%
   left_join(df_wide_choice %>% select(participant.code, treatment.group), by = "participant.code")
 
 #############################
 
 # Daten exportieren
-save(df_long_memory, file = "/Users/ausleihe/Desktop/daten/Cleaned_data/df_long_memory.Rdata")
+save(df_long_memory, file = "/Users/ausleihe/data_analysis_master_lara/Cleaned_data/df_long_memory.Rdata")
 
